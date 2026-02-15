@@ -67,6 +67,7 @@ async function saveHistoryToServer(dataPoint: OIDataPoint): Promise<void> {
   if (now - lastSaveTime < SAVE_INTERVAL) return
 
   try {
+    // 히스토리 저장
     await fetch('/.netlify/functions/save-history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -82,6 +83,20 @@ async function saveHistoryToServer(dataPoint: OIDataPoint): Promise<void> {
         }
       })
     })
+
+    // 알림 체크 (추세 변경 감지)
+    fetch('/.netlify/functions/check-alert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        currentData: {
+          openInterest: dataPoint.openInterest,
+          price: dataPoint.price,
+          fundingRate: dataPoint.binanceFundingRate,
+        }
+      })
+    }).catch(() => {}) // 알림 실패는 무시
+
     lastSaveTime = now
   } catch (e) {
     console.error('Failed to save history:', e)
