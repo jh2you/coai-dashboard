@@ -79,7 +79,7 @@ function formatNumber(num) {
   return num.toFixed(0);
 }
 
-export default async function handler() {
+async function runMonitor() {
   console.log('Monitor OI triggered at', new Date().toISOString());
 
   try {
@@ -158,7 +158,24 @@ ${trendEmoji[prevState.trend]} ${trendText[prevState.trend]} → ${trendEmoji[cu
     }
 
     console.log('Monitor completed successfully');
+    return { success: true, trend: currentTrend };
   } catch (e) {
     console.error('Monitor error:', e);
+    return { success: false, error: String(e) };
   }
+}
+
+// Scheduled function (자동 실행)
+export default async function() {
+  await runMonitor();
+}
+
+// HTTP handler (수동 테스트용)
+export async function handler(event) {
+  const result = await runMonitor();
+  return {
+    statusCode: result.success ? 200 : 500,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(result)
+  };
 }
