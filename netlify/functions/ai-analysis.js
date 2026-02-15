@@ -48,14 +48,23 @@ OI + 가격 해석:
 - 가격↑ + OI↓: 약한 상승 (숏 청산)
 - 가격↓ + OI↓: 약한 하락 (롱 청산)`;
 
+    // 10분 히스토리 포맷팅
+    let historyStr = '';
+    if (marketData.history && marketData.history.length > 0) {
+      historyStr = '\n\n최근 10분 데이터 (1분 간격):\n시간 | OI | 가격 | 펀딩비\n';
+      historyStr += marketData.history.map(h =>
+        `${h.time} | ${formatNumber(h.oi)} | $${h.price.toFixed(4)} | ${(h.funding * 100).toFixed(4)}%`
+      ).join('\n');
+    }
+
     const userPrompt = `현재 COAI 시장 데이터:
 
 가격: $${marketData.price?.toFixed(4) || 'N/A'}
 OI (미체결약정): ${marketData.oi ? formatNumber(marketData.oi) : 'N/A'}
 바이낸스 펀딩비: ${marketData.fundingRate ? (marketData.fundingRate * 100).toFixed(4) + '%' : 'N/A'}
-OI 변화율 (최근): ${marketData.oiChange ? (marketData.oiChange * 100).toFixed(2) + '%' : 'N/A'}
-가격 변화율 (최근): ${marketData.priceChange ? (marketData.priceChange * 100).toFixed(2) + '%' : 'N/A'}
-OI 추세: ${marketData.oiTrend || 'N/A'}
+OI 변화율 (10분): ${marketData.oiChange ? (marketData.oiChange * 100).toFixed(2) + '%' : 'N/A'}
+가격 변화율 (10분): ${marketData.priceChange ? (marketData.priceChange * 100).toFixed(2) + '%' : 'N/A'}
+OI 추세: ${marketData.oiTrend || 'N/A'}${historyStr}
 
 이 데이터를 바탕으로 현재 시장 상황을 분석해주세요.`;
 
@@ -71,7 +80,7 @@ OI 추세: ${marketData.oiTrend || 'N/A'}
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 300,
+        max_tokens: 500,
         temperature: 0.7
       })
     });

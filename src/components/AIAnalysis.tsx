@@ -24,14 +24,41 @@ export default function AIAnalysis() {
 
     try {
       const history = getOIHistory()
-      const recent = history.slice(-5)
 
-      // Calculate price and OI change
+      // 최근 10분 데이터 (5초 간격 = 120개)
+      const last10Min = history.slice(-120)
+
+      // 1분 간격으로 샘플링 (12개 포인트)
+      const sampled: Array<{time: string, oi: number, price: number, funding: number}> = []
+      for (let i = 0; i < last10Min.length; i += 10) {
+        const point = last10Min[i]
+        sampled.push({
+          time: new Date(point.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+          oi: Math.round(point.openInterest),
+          price: point.price,
+          funding: point.binanceFundingRate
+        })
+      }
+      // 마지막 포인트 항상 포함
+      if (last10Min.length > 0) {
+        const lastPoint = last10Min[last10Min.length - 1]
+        const lastSampled = sampled[sampled.length - 1]
+        if (!lastSampled || lastSampled.time !== new Date(lastPoint.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })) {
+          sampled.push({
+            time: new Date(lastPoint.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+            oi: Math.round(lastPoint.openInterest),
+            price: lastPoint.price,
+            funding: lastPoint.binanceFundingRate
+          })
+        }
+      }
+
+      // Calculate price and OI change (10분 전 대비)
       let priceChange = 0
       let oiChange = 0
-      if (recent.length > 1) {
-        priceChange = (recent[recent.length - 1].price - recent[0].price) / recent[0].price
-        oiChange = (recent[recent.length - 1].openInterest - recent[0].openInterest) / recent[0].openInterest
+      if (last10Min.length > 1) {
+        priceChange = (last10Min[last10Min.length - 1].price - last10Min[0].price) / last10Min[0].price
+        oiChange = (last10Min[last10Min.length - 1].openInterest - last10Min[0].openInterest) / last10Min[0].openInterest
       }
 
       const marketData = {
@@ -40,7 +67,8 @@ export default function AIAnalysis() {
         fundingRate: latestOI.binanceFundingRate,
         oiChange,
         priceChange,
-        oiTrend: getOITrend(history)
+        oiTrend: getOITrend(history),
+        history: sampled // 10분 히스토리 (1분 간격)
       }
 
       const response = await fetch('/.netlify/functions/ai-analysis', {
