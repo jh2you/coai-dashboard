@@ -6,7 +6,7 @@
   "description": "COAI 대시보드 - React + React-Query 버전",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npx tsc && npx vite build",
     "preview": "vite preview",
     "netlify-dev": "netlify dev"
   },

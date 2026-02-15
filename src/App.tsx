@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react
 import { ToastProvider } from './components/Toast'
 import PriceTable from './components/PriceTable'
 import SpreadChart from './components/SpreadChart'
+import OpenInterestChart from './components/OpenInterestChart'
+import AIAnalysis from './components/AIAnalysis'
 import OnChainTable from './components/OnChainTable'
 import WalletBalances from './components/WalletBalances'
 import Collapsible from './components/Collapsible'
@@ -28,7 +30,7 @@ function Dashboard() {
         <div>
           <h1>COAI Live</h1>
           <div className="sub">
-            MEXC / Gate.io / Bitget / Binance 실시간 가격 비교 · 괴리율 · 호가 비율 · 스프레드 · 온체인 트래킹
+            실시간 가격 비교 · 괴리율 · 호가 비율 · 스프레드 · 미체결약정 · 온체인 트래킹
           </div>
           <LastUpdated timestamp={dataUpdatedAt} isLoading={isFetching > 0} />
         </div>
@@ -47,6 +49,12 @@ function Dashboard() {
 
       {/* Spread Chart */}
       <SpreadChart />
+
+      {/* Open Interest Chart - Collapsible */}
+      <Collapsible title="미체결 약정 (Open Interest)" defaultOpen={false}>
+        <OpenInterestChart />
+        <AIAnalysis />
+      </Collapsible>
 
       {/* On-Chain Transactions - Collapsible */}
       <Collapsible title="온체인 트랜잭션 (BSC)" defaultOpen={true}>
