@@ -14,12 +14,9 @@ export interface OIDataPoint {
   isSpike: boolean           // Sudden change indicator
 }
 
-// Store historical data
+// Store historical data (in-memory only)
 let oiHistory: OIDataPoint[] = []
 const MAX_HISTORY = 120 // 10 minutes of 5s intervals
-let historyLoaded = false
-let lastSaveTime = 0
-const SAVE_INTERVAL = 60000 // 1분마다 서버에 저장
 
 // Detect OI spike (>5% change)
 const SPIKE_THRESHOLD = 0.05
@@ -39,67 +36,6 @@ async function fetchWithTimeout(url: string, timeout = 5000): Promise<any> {
   } catch (error) {
     clearTimeout(timeoutId)
     throw error
-  }
-}
-
-// 서버에서 히스토리 로드
-async function loadHistoryFromServer(): Promise<void> {
-  if (historyLoaded) return
-  try {
-    const res = await fetch('/.netlify/functions/get-history?type=oi&limit=120')
-    if (res.ok) {
-      const json = await res.json()
-      if (json.data && json.data.length > 0) {
-        oiHistory = json.data
-        historyLoaded = true
-        console.log(`Loaded ${json.data.length} history points from server`)
-      }
-    }
-  } catch (e) {
-    console.error('Failed to load history:', e)
-  }
-  historyLoaded = true // 실패해도 다시 시도하지 않음
-}
-
-// 서버에 히스토리 저장
-async function saveHistoryToServer(dataPoint: OIDataPoint): Promise<void> {
-  const now = Date.now()
-  if (now - lastSaveTime < SAVE_INTERVAL) return
-
-  try {
-    // 히스토리 저장
-    await fetch('/.netlify/functions/save-history', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'oi',
-        data: {
-          openInterest: dataPoint.openInterest,
-          price: dataPoint.price,
-          fundingRate: dataPoint.fundingRate,
-          binanceFundingRate: dataPoint.binanceFundingRate,
-          oiChange: dataPoint.oiChange,
-          isSpike: dataPoint.isSpike,
-        }
-      })
-    })
-
-    // 알림 체크 (추세 변경 감지)
-    fetch('/.netlify/functions/check-alert', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        currentData: {
-          openInterest: dataPoint.openInterest,
-          price: dataPoint.price,
-          fundingRate: dataPoint.binanceFundingRate,
-        }
-      })
-    }).catch(() => {}) // 알림 실패는 무시
-
-    lastSaveTime = now
-  } catch (e) {
-    console.error('Failed to save history:', e)
   }
 }
 
@@ -150,9 +86,6 @@ async function fetchBitgetOI(): Promise<{ oi: number; fundingRate: number } | nu
 
 // Aggregate OI data from multiple exchanges
 async function fetchAggregatedOI(): Promise<OIDataPoint> {
-  // 첫 로드 시 서버에서 히스토리 불러오기
-  await loadHistoryFromServer()
-
   const timestamp = Date.now()
 
   // Fetch from exchanges in parallel
@@ -204,9 +137,6 @@ async function fetchAggregatedOI(): Promise<OIDataPoint> {
   if (oiHistory.length > MAX_HISTORY) {
     oiHistory.shift()
   }
-
-  // 서버에 저장 (1분마다)
-  saveHistoryToServer(dataPoint)
 
   return dataPoint
 }

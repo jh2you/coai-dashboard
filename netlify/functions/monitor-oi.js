@@ -1,9 +1,5 @@
-import { getStore } from "@netlify/blobs";
-
-// 5분마다 실행
-export const config = {
-  schedule: "*/5 * * * *"
-};
+// OI 모니터링 (HTTP로 호출)
+// 외부 cron 서비스로 5분마다 호출 필요
 
 // 텔레그램 메시지 전송
 async function sendTelegram(message) {
@@ -54,24 +50,6 @@ async function fetchBinanceOI() {
   }
 }
 
-// OI 추세 계산
-function getOITrend(history) {
-  if (history.length < 5) return 'stable';
-
-  const recent = history.slice(-5);
-  const avgRecent = recent.reduce((sum, p) => sum + p.openInterest, 0) / recent.length;
-  const older = history.slice(-10, -5);
-
-  if (older.length === 0) return 'stable';
-
-  const avgOlder = older.reduce((sum, p) => sum + p.openInterest, 0) / older.length;
-  const change = (avgRecent - avgOlder) / avgOlder;
-
-  if (change > 0.02) return 'rising';
-  if (change < -0.02) return 'falling';
-  return 'stable';
-}
-
 // 숫자 포맷
 function formatNumber(num) {
   if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
@@ -79,103 +57,56 @@ function formatNumber(num) {
   return num.toFixed(0);
 }
 
-async function runMonitor() {
+// HTTP handler
+export async function handler(event) {
   console.log('Monitor OI triggered at', new Date().toISOString());
 
   try {
     // OI 데이터 가져오기
     const currentData = await fetchBinanceOI();
     if (!currentData) {
-      console.error('Failed to fetch OI data');
-      return;
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Failed to fetch OI data' })
+      };
     }
 
-    const store = getStore("coai-history");
-    const now = Date.now();
+    // 펀딩비 임계값 체크 (극단적 펀딩비 알림)
+    const fundingRate = currentData.fundingRate;
+    const FUNDING_THRESHOLD = 0.001; // 0.1%
 
-    // 히스토리 가져오기 및 업데이트
-    let history = [];
-    try {
-      const data = await store.get("history:oi", { type: 'json' });
-      if (data) history = data;
-    } catch (e) {}
+    let alertSent = false;
+    if (Math.abs(fundingRate) > FUNDING_THRESHOLD) {
+      const direction = fundingRate > 0 ? '롱 과열 🔴' : '숏 과열 🟢';
+      const message = `<b>⚠️ COAI 펀딩비 경고</b>
 
-    // 새 데이터 추가
-    history.push({
-      ...currentData,
-      timestamp: now
-    });
-
-    // 24시간 이전 데이터 제거
-    const MAX_HISTORY_MS = 24 * 60 * 60 * 1000;
-    history = history.filter(item => now - item.timestamp < MAX_HISTORY_MS);
-
-    // 최대 288개 유지 (5분 간격 24시간)
-    if (history.length > 288) {
-      history = history.slice(-288);
-    }
-
-    // 히스토리 저장
-    await store.setJSON("history:oi", history);
-
-    // 이전 상태 가져오기
-    let prevState = { trend: 'stable', lastAlertTime: 0 };
-    try {
-      const state = await store.get("alert:state", { type: 'json' });
-      if (state) prevState = state;
-    } catch (e) {}
-
-    // 현재 추세 계산
-    const currentTrend = getOITrend(history);
-    const ALERT_COOLDOWN = 5 * 60 * 1000; // 5분
-
-    console.log(`Current trend: ${currentTrend}, Previous: ${prevState.trend}`);
-
-    // 추세 변경 감지
-    if (currentTrend !== prevState.trend && (now - prevState.lastAlertTime) > ALERT_COOLDOWN) {
-      const trendEmoji = { rising: '📈', falling: '📉', stable: '➡️' };
-      const trendText = { rising: '상승세', falling: '하락세', stable: '보합' };
-
-      const alertMessage = `<b>🚨 COAI OI 추세 변경</b>
-
-${trendEmoji[prevState.trend]} ${trendText[prevState.trend]} → ${trendEmoji[currentTrend]} <b>${trendText[currentTrend]}</b>
-
+${direction}
+💹 펀딩비: <b>${(fundingRate * 100).toFixed(4)}%</b>
 💰 가격: $${currentData.price.toFixed(4)}
 📊 OI: ${formatNumber(currentData.openInterest)}
-💹 펀딩비: ${(currentData.fundingRate * 100).toFixed(4)}%
 
 🔗 <a href="https://coaidashboard.netlify.app">대시보드 확인</a>`;
 
-      const sent = await sendTelegram(alertMessage);
-      console.log('Alert sent:', sent);
-
-      if (sent) {
-        await store.setJSON("alert:state", {
-          trend: currentTrend,
-          lastAlertTime: now
-        });
-      }
+      alertSent = await sendTelegram(message);
     }
 
-    console.log('Monitor completed successfully');
-    return { success: true, trend: currentTrend };
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        success: true,
+        data: currentData,
+        fundingAlert: Math.abs(fundingRate) > FUNDING_THRESHOLD,
+        alertSent
+      })
+    };
   } catch (e) {
     console.error('Monitor error:', e);
-    return { success: false, error: String(e) };
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: String(e.message || e) })
+    };
   }
-}
-
-// Scheduled function (자동 실행)
-export default async function() {
-  await runMonitor();
-}
-
-// HTTP handler (수동 테스트용)
-export async function handler(event) {
-  const result = await runMonitor();
-  return {
-    statusCode: result.success ? 200 : 500,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(result)
-  };
 }

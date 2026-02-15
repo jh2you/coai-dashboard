@@ -1,8 +1,3 @@
-// 5분마다 실행
-export const config = {
-  schedule: "*/5 * * * *"
-};
-
 // COAI 컨트랙트
 const COAI_CONTRACT = '0x0a8d6c86e1bce73fe4d0bd531e1a567306836ea5';
 
@@ -130,12 +125,7 @@ async function runMonitor() {
   }
 }
 
-// Scheduled function
-export default async function() {
-  await runMonitor();
-}
-
-// HTTP handler (테스트용)
+// HTTP handler
 export async function handler(event) {
   const result = await runMonitor();
   return {
