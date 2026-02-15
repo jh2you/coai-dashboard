@@ -63,7 +63,7 @@ exports.handler = async (event) => {
     if (!apiKey) return { statusCode: 500, body: "Missing ETHERSCAN_KEY env" };
 
     const qp = event.queryStringParameters || {};
-    const contract = (qp.contract || process.env.COAI_CONTRACT || "0xd82544bf0dfe8385ef8fa34d67e6e4940cc63e16").toLowerCase();
+    const contract = (qp.contract || process.env.COAI_CONTRACT || "0x0a8d6c86e1bce73fe4d0bd531e1a567306836ea5").toLowerCase();
     const hours = Number(qp.hours || process.env.COAI_HOURS || 24);
 
     // wallets: Label:0x...,Label2:0x...

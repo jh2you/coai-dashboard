@@ -1,0 +1,41 @@
+{
+  "name": "coai-dashboard",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "COAI 대시보드 - React + React-Query 버전",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "netlify-dev": "netlify dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jh2you/coai-dashboard.git"
+  },
+  "keywords": [
+    "coai",
+    "dashboard",
+    "crypto"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jh2you/coai-dashboard/issues"
+  },
+  "homepage": "https://github.com/jh2you/coai-dashboard#readme",
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.21",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "recharts": "^3.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
