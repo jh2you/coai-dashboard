@@ -1,34 +1,33 @@
-// 텔레그램 메시지 전송 함수
+// 텔레그램 메시지 전송 함수 (개인 + 그룹)
 export async function sendTelegram(message) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const chatIds = [
+    process.env.TELEGRAM_CHAT_ID,      // 개인 채팅
+    process.env.TELEGRAM_GROUP_ID      // 그룹 채팅
+  ].filter(Boolean);
 
-  if (!botToken || !chatId) {
+  if (!botToken || chatIds.length === 0) {
     console.error('Telegram credentials not configured');
     return false;
   }
 
   try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${botToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: 'HTML'
-        })
-      }
+    // 모든 채팅에 전송
+    const results = await Promise.all(
+      chatIds.map(chatId =>
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: message,
+            parse_mode: 'HTML'
+          })
+        }).then(r => r.ok).catch(() => false)
+      )
     );
 
-    if (!response.ok) {
-      const err = await response.text();
-      console.error('Telegram API error:', err);
-      return false;
-    }
-
-    return true;
+    return results.some(r => r); // 하나라도 성공하면 true
   } catch (e) {
     console.error('Telegram send error:', e);
     return false;
